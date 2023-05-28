@@ -1,6 +1,10 @@
 <?php
 
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\TicketController;
+use App\Models\User;
 use Illuminate\Support\Facades\Route;
+use Laravel\Socialite\Facades\Socialite;
 
 /*
 |--------------------------------------------------------------------------
@@ -15,4 +19,46 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
+});
+
+Route::get('/dashboard', function () {
+    return view('dashboard');
+})->middleware(['auth', 'verified'])->name('dashboard');
+
+Route::middleware('auth')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
+
+
+require __DIR__.'/auth.php';
+
+
+Route::post('/auth/redirect', function () {
+    return Socialite::driver('github')->redirect();
+})->name("login.github");
+
+Route::get('/auth/callback', function () {
+    //get user from github that logged in
+    $user = Socialite::driver('github')->user();
+
+    //find user with github user email and create a new user or update the existing user (updateOrCreate)
+    // find user with github user email and create a new user for the first time and if user already exists it does nothing (firstOrCreate)
+    $user =User::firstOrCreate(['email'=>$user->email], [
+        'name'=>$user->name,
+        'password'=>'password',
+    ]);
+    Auth::login($user);
+    return redirect('/dashboard');
+    // $user->token
+});
+
+Route::middleware('auth')->group(function () {
+
+    Route::resource('/ticket', TicketController::class);
+
+    //above method is simply version of below route
+    // Route::get('/ticket/create', [TicketController::class,"create"])->name('ticket.create');
+    // Route::post('/ticket/create', [TicketController::class,"store"])->name('ticket.store');
 });
