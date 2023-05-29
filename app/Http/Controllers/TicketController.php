@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Ticket;
 use App\Http\Requests\StoreTicketRequest;
 use App\Http\Requests\UpdateTicketRequest;
+use Storage;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\File;
 
 class TicketController extends Controller
 {
@@ -13,7 +16,9 @@ class TicketController extends Controller
      */
     public function index()
     {
-        //
+        $user = auth()->user();
+        $tickets = Ticket::all();
+        return view('ticket.index', compact('tickets'));
     }
 
     /**
@@ -29,7 +34,21 @@ class TicketController extends Controller
      */
     public function store(StoreTicketRequest $request)
     {
-        //
+        $ticket = Ticket::create([
+            'user_id'=>auth()->id(),
+            'title' => $request->title,
+            'description' => $request->description,
+         ]);
+
+        $file = $request->file('attachment');
+        if($file) {
+            $this->storeAttachment($file, $ticket);
+        }
+
+
+
+
+        return redirect(route('ticket.index'));
     }
 
     /**
@@ -37,7 +56,8 @@ class TicketController extends Controller
      */
     public function show(Ticket $ticket)
     {
-        //
+
+        return view("ticket.show", compact('ticket'));
     }
 
     /**
@@ -45,7 +65,8 @@ class TicketController extends Controller
      */
     public function edit(Ticket $ticket)
     {
-        //
+        return view("ticket.edit", compact('ticket'));
+
     }
 
     /**
@@ -53,7 +74,18 @@ class TicketController extends Controller
      */
     public function update(UpdateTicketRequest $request, Ticket $ticket)
     {
-        //
+
+        $ticket->update([
+            "title" => $request->title,
+            "description"=>$request->description
+    ]);
+        $file = $request->file('attachment');
+        if($file) {
+            Storage::disk('public')->delete($ticket->attachment);
+            $this->storeAttachment($file, $ticket);
+        }
+        return redirect(route('ticket.index'));
+
     }
 
     /**
@@ -61,6 +93,18 @@ class TicketController extends Controller
      */
     public function destroy(Ticket $ticket)
     {
-        //
+
+        $ticket->delete();
+        return redirect()->route('ticket.index');
+    }
+
+    protected function storeAttachment($request, $ticket)
+    {
+        $content= file_get_contents($request);
+        $filename = Str::random(25);
+        $ext = $request->extension();
+        $path = "attachment/$filename.$ext";
+        Storage::disk('public')->put($path, $content);
+        $ticket->update(['attachment' => $path]);
     }
 }
